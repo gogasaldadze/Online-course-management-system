@@ -1,6 +1,23 @@
-Project is running on docker with using Postgre db. 
 
-For running commands i am using makefile.
+Brief overview:
+
+i decided to accumulate all db models together in content dir in order to avoid migration madness. therefore we will be able to simply track our migration history since it wont be splitted among different apps. however i keep isolated Custom user model alongside with custom manager in access dir, which is responsible to asign profile accordingly (student or teacher). this is because its not really related to our business logic, its something more essential, specifically related to project.
+lastly, regarding models, i love having Abstractmodel in common dir for my dbmodels even for our custom User model, because it provides essential data for each row created, such as UUID, created_at, updated_at, ordering and its not really model since we declare as abstract in Meta.
+
+Instead of installing apps separately i prefer having my main API which contains sub-apis and gathers all sub urls to our API urls.py and we simply register every business logic related urls to our project under api/ endpoint. sub-apis of course contain needed files such as views, serializers, querysets etc.
+
+Since we run our project on container and also for security purposes i keep hidden our SECRET_KEY, JWT related keys, oyur postgre creds and url.  Therfore in settings.py every important data is implied by help of ENV, .env and dj_database_url. 
+
+Since uv is one of the first topic of our course, i decided to dive more deeply into that topic, and explored uv docker doccumentation which was really helpful honestly, i was able to find suggested :best-practice" approach to implement uv in our container.
+
+    https://docs.astral.sh/uv/guides/integration/docker
+    https://github.com/astral-sh/uv-docker-example/blob/main/Dockerfile
+
+you may see i use different port 5436 on my local machine and this is because 5432 is kept by some process which i was not really able to terminate, so hope its okay.
+
+
+Lastly, want to mention makefile, because it rly saves my nerves and time :D and you may already have it, but still incase i keep windows isntallation instruction below, because at first it was rly struggle to install this tool on win. 
+
 
 windows installation: 
 run in powershell as an administrator:
@@ -53,3 +70,14 @@ or use already existed creds:
         std8	std8pass
         std9	std9pass
         std10	std10pass
+
+
+
+
+
+
+
+ 
+
+
+
