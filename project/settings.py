@@ -27,8 +27,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # apps
     "common.apps.CommonConfig",
-    "access.apps.AccessConfig",
     "content.apps.ContentConfig",
+    "access.apps.AccessConfig",
     "api.apps.ApiConfig",
     # for scripts
     "django_extensions",
