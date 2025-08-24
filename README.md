@@ -42,6 +42,8 @@ to simplify process i pushed .env file, so you don't need to manually provide cr
 
 You can Register via using endpoint api/auth/register
 
+I suggest you to use DRF templates to smoothlly navigate (also simple for swtiching users (teacher/student), since drf login presented) 
+
 or use already existed creds:
 
         User Credentials
