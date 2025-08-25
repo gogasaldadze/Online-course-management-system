@@ -1,5 +1,14 @@
 from common.models import AbstractModel
 from django.db import models
+from django.db.models import Prefetch, Count
+from django.apps import apps
+from .managers import (
+    CoursesManager,
+    LectureManager,
+    HomeworkManager,
+    HomeWorkSubmissionManager,
+    GradeManager,
+)
 from django.conf import settings
 
 
@@ -62,6 +71,8 @@ class Courses(AbstractModel):
             models.Index(fields=["name"]),
         ]
 
+    objects = CoursesManager()
+
 
 class Lecture(AbstractModel):
     course = models.ForeignKey(
@@ -74,6 +85,8 @@ class Lecture(AbstractModel):
         indexes = [
             models.Index(fields=["course"]),
         ]
+
+    objects = LectureManager()
 
 
 class Homework(AbstractModel):
@@ -90,6 +103,8 @@ class Homework(AbstractModel):
         indexes = [
             models.Index(fields=["lecture"]),
         ]
+
+    objects = HomeworkManager()
 
 
 class HomeWorkSubmission(AbstractModel):
@@ -126,6 +141,8 @@ class HomeWorkSubmission(AbstractModel):
     def __str__(self):
         return f"{self.student.name} - {self.homework.title} ({self.status})"
 
+    objects = HomeWorkSubmissionManager()
+
 
 class Grade(AbstractModel):
     submission = models.OneToOneField(
@@ -151,6 +168,8 @@ class Grade(AbstractModel):
             models.Index(fields=["graded"]),
         ]
 
+    objects = GradeManager()
+
 
 class GradeComment(AbstractModel):
     grade = models.ForeignKey(Grade, on_delete=models.CASCADE, related_name="comments")
@@ -171,3 +190,22 @@ class GradeComment(AbstractModel):
 
     def __str__(self):
         return f"Comment by {self.author.username} on {self.grade}"
+
+
+class Notification(AbstractModel):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    is_read = models.BooleanField(default=False)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["user", "is_read"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username}: {self.title}"
