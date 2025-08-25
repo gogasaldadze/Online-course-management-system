@@ -10,9 +10,10 @@ from rest_framework import status
 from drf_spectacular.utils import extend_schema_view, extend_schema, OpenApiResponse
 
 from content.models import Grade, HomeWorkSubmission, TeacherProfile
+from service.grades import create_grade, update_grade
 from .serializers import GradeSerializer
 from api.permissions import IsHelper, IsMainTeacher
-from .querysets import get_teachers_of_course
+from content.models import Grade
 
 
 from schema.grades.schemas import (
@@ -27,7 +28,7 @@ from .filters import GradeFilter
 # region teacher
 @extend_schema_view(get=teacher_grades_list)
 class GradeListView(GenericAPIView, ListModelMixin):
-    """Endpoint for teachers to list grades for homework submissions."""
+    """List grades."""
 
     serializer_class = GradeSerializer
     permission_classes = [IsAuthenticated, IsMainTeacher | IsHelper]
@@ -37,7 +38,7 @@ class GradeListView(GenericAPIView, ListModelMixin):
         teacher_profile = TeacherProfile.objects.filter(user=self.request.user).first()
         if not teacher_profile:
             raise PermissionDenied("You are not a teacher!")
-        return get_teachers_of_course(teacher_profile)
+        return Grade.objects.for_teachers_of_course(teacher_profile)
 
     def get(self, request, *args, **kwargs):
         return self.list(request, *args, **kwargs)
@@ -45,7 +46,7 @@ class GradeListView(GenericAPIView, ListModelMixin):
 
 @extend_schema_view(post=teacher_grade_create)
 class GradeCreateView(CreateAPIView):
-    """Create a grade for a submission (only if it doesn't exist)."""
+    """Create grade."""
 
     serializer_class = GradeSerializer
     permission_classes = [IsAuthenticated, IsMainTeacher | IsHelper]
@@ -56,7 +57,7 @@ class GradeCreateView(CreateAPIView):
         teacher_profile = self.request.user.teacher_profile
         if not teacher_profile:
             raise PermissionDenied("You are not a teacher!")
-        return get_teachers_of_course(teacher_profile)
+        return Grade.objects.for_teachers_of_course(teacher_profile)
 
     def get_submission(self):
         submission_uuid = self.kwargs.get(self.lookup_url_kwarg)
@@ -68,11 +69,8 @@ class GradeCreateView(CreateAPIView):
     def perform_create(self, serializer):
         submission = self.get_submission()
         self.check_object_permissions(self.request, submission)
-
-        if Grade.objects.filter(submission=submission).exists():
-            raise PermissionDenied("Grade already exists. Use update.")
-
-        return serializer.save(submission=submission, graded=True)
+        grade = create_grade(submission.uuid, self.request.user.teacher_profile, serializer.validated_data)
+        serializer.instance = grade
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -83,7 +81,7 @@ class GradeCreateView(CreateAPIView):
 
 @extend_schema_view(put=teacher_grade_update, patch=teacher_grade_update)
 class GradeUpdateView(UpdateAPIView):
-    """Update an existing grade (re-grade)."""
+    """Update grade."""
 
     serializer_class = GradeSerializer
     permission_classes = [IsAuthenticated, IsMainTeacher | IsHelper]
@@ -94,9 +92,7 @@ class GradeUpdateView(UpdateAPIView):
         teacher_profile = self.request.user.teacher_profile
         if not teacher_profile:
             raise PermissionDenied("You are not a teacher!")
-        return Grade.objects.filter(
-            submission__in=get_teachers_of_course(teacher_profile)
-        )
+        return Grade.objects.for_teachers_of_course(teacher_profile)
 
     def get_object(self):
         submission_uuid = self.kwargs.get(self.lookup_url_kwarg)
@@ -111,17 +107,15 @@ class GradeUpdateView(UpdateAPIView):
             raise NotFound("Grade does not exist. Create it first.")
 
     def perform_update(self, serializer):
-        grade = serializer.save(graded=True)
-        submission = grade.submission
-        submission.status = HomeWorkSubmission.Status.GRADED
-        submission.save()
+        grade = update_grade(self.kwargs.get(self.lookup_url_kwarg), self.request.user.teacher_profile, serializer.validated_data)
+        serializer.instance = grade
 
 
 # endregion
 # region student
 @extend_schema_view(get=student_grades_list)
 class StudentGradeListView(GenericAPIView, ListModelMixin):
-    """Endpoint for students to view their own grades."""
+    """List student grades."""
 
     serializer_class = GradeSerializer
     permission_classes = [IsAuthenticated]

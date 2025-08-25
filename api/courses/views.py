@@ -25,12 +25,8 @@ from .serializers import (
     AddHelperSerializer,
 )
 
-from .querysets import (
-    get_teacher_courses_optimized,
-    get_available_courses,
-    get_student_courses_optimized,
-    get_all_courses_helper,
-)
+from content.models import Courses
+from service.courses import create_course_with_students, update_course_students, manage_helpers
 
 from api.permissions import IsMainTeacher, IsTeacher
 from schema.serializers import (
@@ -59,7 +55,7 @@ from .filters import CourseFilter, TeacherCourseFilter
     post=teacher_course_create,
 )
 class TeacherCourseListCreateView(ListCreateAPIView):
-    """Endpoint for teachers to list and create their courses."""
+    """List and create teacher courses."""
 
     permission_classes = [IsAuthenticated, IsTeacher]
     lookup_field = "pk"
@@ -67,7 +63,7 @@ class TeacherCourseListCreateView(ListCreateAPIView):
 
     def get_queryset(self):
         teacher_profile = getattr(self.request.user, "teacher_profile", None)
-        return get_teacher_courses_optimized(teacher_profile)
+        return Courses.objects.for_teacher_optimized(teacher_profile)
 
     def get_serializer_class(self, *args, **kwargs):
         if self.request.method == "POST":
@@ -76,7 +72,13 @@ class TeacherCourseListCreateView(ListCreateAPIView):
 
     def perform_create(self, serializer):
         teacher_profile = getattr(self.request.user, "teacher_profile")
-        serializer.save(teacher=teacher_profile)
+        course = create_course_with_students(
+            teacher=teacher_profile,
+            name=serializer.validated_data.get("name"),
+            available=serializer.validated_data.get("available", True),
+            student_ids=serializer.validated_data.get("student_ids", []),
+        )
+        serializer.instance = course
 
 
 @extend_schema_view(
@@ -86,19 +88,25 @@ class TeacherCourseListCreateView(ListCreateAPIView):
     delete=teacher_course_delete,
 )
 class TeacherCourseDetailView(RetrieveUpdateDestroyAPIView):
-    """Endpoint for teachers to retrieve, update, or delete their specific course."""
+    """Manage specific teacher course."""
 
     permission_classes = [IsAuthenticated, IsMainTeacher]
     lookup_field = "pk"
 
     def get_queryset(self):
         teacher_profile = getattr(self.request.user, "teacher_profile")
-        return get_teacher_courses_optimized(teacher_profile)
+        return Courses.objects.for_teacher_optimized(teacher_profile)
 
     def get_serializer_class(self):
         if self.request.method in ["PATCH", "PUT"]:
             return UpdateCoursesSerializer
         return ListCoursesTeacherSerializer
+
+    def perform_update(self, serializer):
+        students_add = serializer.validated_data.pop("student_add_ids", [])
+        students_remove = serializer.validated_data.pop("student_remove_ids", [])
+        instance = serializer.save()
+        update_course_students(course=instance, add_ids=students_add, remove_ids=students_remove)
 
 
 @extend_schema(
@@ -121,7 +129,14 @@ class ManageHelpersView(UpdateAPIView):
     http_method_names = ["patch"]
 
     def get_queryset(self):
-        return get_all_courses_helper()
+        return (
+            Courses.objects.is_available()
+            .with_teacher()
+            .with_lectures()
+            .with_helpers()
+            .with_students()
+            .only("id", "name", "teacher_id", "uuid")
+        )
 
     def patch(self, request, *args, **kwargs):
         course = self.get_object()
@@ -130,9 +145,7 @@ class ManageHelpersView(UpdateAPIView):
 
         helpers_add = serializer.validated_data.get("helpers_add_ids", [])
         helpers_remove = serializer.validated_data.get("helpers_remove_ids", [])
-
-        course.helpers.add(*helpers_add)
-        course.helpers.remove(*helpers_remove)
+        manage_helpers(course=course, add_ids=helpers_add, remove_ids=helpers_remove)
 
         return Response(ListCoursesTeacherSerializer(course).data)
 
@@ -143,14 +156,14 @@ class ManageHelpersView(UpdateAPIView):
     get=student_courses_available_list,
 )
 class StudentListCourseView(ListModelMixin, GenericAPIView):
-    """Endpoint for students to retrieve available courses."""
+    """List available courses."""
 
     serializer_class = ListCoursesStudentSerializer
     permission_classes = [AllowAny]
     filterset_class = CourseFilter
 
     def get_queryset(self):
-        return get_available_courses()
+        return Courses.objects.is_available().with_teacher().with_lectures().only_basic()
 
     def get(self, request, *args, **kwargs):
         return self.list(request, *args, **kwargs)
@@ -160,7 +173,7 @@ class StudentListCourseView(ListModelMixin, GenericAPIView):
     get=student_courses_registered_list,
 )
 class StudentRegisteredCoursesView(ListAPIView):
-    """Endpoint for students to retrieve registrered own courses."""
+    """List student's registered courses."""
 
     serializer_class = StudentRegisteredCoursesSerializer
     permission_classes = [IsAuthenticated]
@@ -170,14 +183,14 @@ class StudentRegisteredCoursesView(ListAPIView):
         student_profile = getattr(self.request.user, "student_profile", None)
         if not student_profile:
             raise PermissionDenied("You are not a student.")
-        return get_student_courses_optimized(student_profile)
+        return Courses.objects.for_student_optimized(student_profile)
 
 
 @extend_schema_view(
     get=student_course_registered_retrieve,
 )
 class StudentRegisteredCourseDetailView(RetrieveAPIView):
-    """Endpoint for students to retrieve specific registrered own course."""
+    """Get specific registered course."""
 
     serializer_class = StudentRegisteredCoursesSerializer
     permission_classes = [IsAuthenticated]
@@ -186,7 +199,7 @@ class StudentRegisteredCourseDetailView(RetrieveAPIView):
         student_profile = getattr(self.request.user, "student_profile", None)
         if not student_profile:
             raise PermissionDenied("You are not a student.")
-        return get_student_courses_optimized(student_profile)
+        return Courses.objects.for_student_optimized(student_profile)
 
 
 # endregion

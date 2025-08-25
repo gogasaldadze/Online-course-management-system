@@ -3,9 +3,7 @@ from content.models import Courses
 
 
 class CourseFilter(FilterSet):
-    # Filter by course name
     name = CharFilter(field_name="name", lookup_expr="icontains", label="course name")
-    # Filter by teacher's name
     teacher_name = CharFilter(field_name="teacher__name", lookup_expr="icontains")
 
     class Meta:

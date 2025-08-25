@@ -9,7 +9,8 @@ from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema_view
 
 from content.models import Courses
-from .querysets import get_teacher_lectures, get_student_lectures
+from service.lectures import teacher_create_lecture
+from content.models import Lecture
 from .serializers import (
     StudentLectureSerializer,
     TeacherLectureSerializer,
@@ -37,13 +38,13 @@ class BaseAPIView(GenericAPIView):
 
     def get_queryset(self):
         teacher_profile = self.request.user.teacher_profile
-        return get_teacher_lectures(teacher_profile)
+        return Lecture.objects.for_teacher(teacher_profile)
 
 
 # region teacher
 @extend_schema_view(get=teacher_lectures_list, post=teacher_lecture_create)
 class ListCreateLectureView(BaseAPIView, ListModelMixin, CreateModelMixin):
-    """Endpoint for teachers to list and create lectures."""
+    """List and create lectures."""
 
     def get(self, request, *args, **kwargs):
         return self.list(request, *args, **kwargs)
@@ -59,8 +60,8 @@ class ListCreateLectureView(BaseAPIView, ListModelMixin, CreateModelMixin):
     def perform_create(self, serializer):
         teacher_profile = self.request.user.teacher_profile
         course_id = self.kwargs.get("course_id")
-        course = Courses.objects.get(id=course_id, teacher=teacher_profile)
-        serializer.save(course=course)
+        lecture = teacher_create_lecture(teacher_profile, course_id, serializer.validated_data)
+        serializer.instance = lecture
 
 
 @extend_schema_view(
@@ -70,7 +71,7 @@ class ListCreateLectureView(BaseAPIView, ListModelMixin, CreateModelMixin):
     delete=teacher_lecture_delete,
 )
 class RetriveDestroyUpdateLectureView(BaseAPIView, RetrieveUpdateDestroyAPIView):
-    """Endpoint for teachers to retrieve, update, or delete specific lectures."""
+    """Manage specific lecture."""
 
     pass
 
@@ -79,7 +80,7 @@ class RetriveDestroyUpdateLectureView(BaseAPIView, RetrieveUpdateDestroyAPIView)
 # region student
 @extend_schema_view(get=student_lectures_list)
 class ListStudentLectureView(ListAPIView):
-    """Endpoint for students to view lectures from their enrolled courses."""
+    """List student lectures."""
 
     permission_classes = [IsAuthenticated]
     serializer_class = StudentLectureSerializer
@@ -89,7 +90,7 @@ class ListStudentLectureView(ListAPIView):
         student_profile = StudentProfile.objects.filter(user=self.request.user).first()
         if not student_profile:
             raise PermissionDenied("You are not a student.")
-        return get_student_lectures(student_profile)
+        return Lecture.objects.for_student(student_profile)
 
 
 # endregion

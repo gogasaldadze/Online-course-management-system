@@ -21,8 +21,8 @@ from .serializers import (
     StudentHomeworkSerializer,
 )
 from api.permissions import IsTeacher
-from .querysets import get_teacher_homework
-from api.lectures.querysets import ALL_LECTURES
+from content.models import Lecture
+from service.homework import teacher_create_homework
 from content.models import StudentProfile
 
 from schema.homework.schemas import (
@@ -45,7 +45,7 @@ class BaseAPIView(GenericAPIView):
     def get_queryset(self):
         teacher_profile = self.request.user.teacher_profile
         lecture_id = self.kwargs.get("lecture_id")
-        return get_teacher_homework(teacher_profile, lecture_id)
+        return Homework.objects.for_teacher(teacher_profile, lecture_id)
 
     def get_serializer_class(self):
         if self.request.method == "PATCH":
@@ -62,7 +62,7 @@ class BaseAPIView(GenericAPIView):
 class RetrieveCreateHomeworkView(
     BaseAPIView, ListModelMixin, UpdateModelMixin, DestroyModelMixin, CreateModelMixin
 ):
-    """Endpoint for teachers to list/create/patch/delete homework assignments."""
+    """Manage homework for lecture."""
 
     lookup_field = "lecture_id"
 
@@ -81,8 +81,8 @@ class RetrieveCreateHomeworkView(
     def perform_create(self, serializer):
         teacher_profile = self.request.user.teacher_profile
         lecture_id = self.kwargs.get("lecture_id")
-        lecture = ALL_LECTURES.get(id=lecture_id, course__teacher=teacher_profile)
-        serializer.save(lecture=lecture)
+        hw = teacher_create_homework(teacher_profile, lecture_id, serializer.validated_data)
+        serializer.instance = hw
 
 
 @extend_schema_view(get=teacher_all_homeworks_list)
@@ -92,7 +92,7 @@ class ListHomeworkView(BaseAPIView, ListModelMixin):
 
     def get_queryset(self):
         teacher_profile = self.request.user.teacher_profile
-        return Homework.objects.filter(lecture__course__teacher=teacher_profile)
+        return Homework.objects.for_teacher_all(teacher_profile)
 
     def get(self, request, *args, **kwargs):
         return self.list(request, *args, **kwargs)
@@ -102,7 +102,7 @@ class ListHomeworkView(BaseAPIView, ListModelMixin):
 # region student
 @extend_schema_view(get=student_homework_retrieve)
 class RetrieveHomeworkStudentView(RetrieveAPIView):
-    """Endpoint for students to view homework assignments from their enrolled courses."""
+    """Get homework for student."""
 
     permission_classes = [IsAuthenticated]
     serializer_class = StudentHomeworkSerializer
@@ -122,7 +122,7 @@ class RetrieveHomeworkStudentView(RetrieveAPIView):
 
 @extend_schema_view(get=student_all_homeworks_list)
 class StudentAllHomeworksView(ListAPIView):
-    """Endpoint for students to view all homework assignments across all their lectures."""
+    """List all student homeworks."""
 
     permission_classes = [IsAuthenticated]
     serializer_class = StudentHomeworkSerializer
@@ -132,8 +132,7 @@ class StudentAllHomeworksView(ListAPIView):
         student_profile = StudentProfile.objects.filter(user=self.request.user).first()
         if not student_profile:
             raise PermissionDenied("You are not a student.")
-
-        return Homework.objects.filter(lecture__course__student=student_profile)
+        return Homework.objects.for_student(student_profile)
 
 
 # endregion
