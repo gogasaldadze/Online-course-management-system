@@ -153,8 +153,8 @@ REST_FRAMEWORK = {
         "api.throttles.SustainedRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "5/min",
-        "burst": "15/min",
+        "anon": "15/min",
+        "burst": "50/min",
         "sustained": "150/hour",
     },
 }

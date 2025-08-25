@@ -1,10 +1,10 @@
-from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
 from api.homework.serializers import (
     HomeworkCreateSerializer,
     HomeworkUpdateSerializer,
     StudentHomeworkSerializer,
 )
-from schema.serializers import (
+from ..serializers import (
     ValidationErrorSerializer,
     PermissionDeniedSerializer,
     NotFoundSerializer,
@@ -14,23 +14,33 @@ from schema.serializers import (
 student_homeworks_list = extend_schema(
     tags=["Homework - Student"],
     operation_id="student_homeworks_list",
-    summary="List student's homework",
-    description="Retrieve all homework assignments for courses where the student is enrolled.",
+    summary="List lecture homework",
+    description="Get homework for specific lecture",
     responses={
         200: StudentHomeworkSerializer(many=True),
-        403: PermissionDeniedSerializer,
+        403: OpenApiResponse(
+            response=PermissionDeniedSerializer,
+            description="Authentication required",
+        ),
     },
 )
+
 
 student_homework_retrieve = extend_schema(
     tags=["Homework - Student"],
     operation_id="student_homework_retrieve",
-    summary="Retrieve student's homework",
-    description="Retrieve detailed information about a specific homework assignment for the student.",
+    summary="Get homework",
+    description="Get homework assignment for student",
     responses={
         200: StudentHomeworkSerializer,
-        403: PermissionDeniedSerializer,
-        404: NotFoundSerializer,
+        403: OpenApiResponse(
+            response=PermissionDeniedSerializer,
+            description="Authentication required",
+        ),
+        404: OpenApiResponse(
+            response=NotFoundSerializer,
+            description="Homework not found",
+        ),
     },
 )
 
@@ -38,77 +48,130 @@ student_homework_retrieve = extend_schema(
 teacher_homeworks_list = extend_schema(
     tags=["Homework - Teacher"],
     operation_id="teacher_homeworks_list",
-    summary="List teacher's homework",
-    description="Retrieve all homework assignments created by the authenticated teacher.",
+    summary="List lecture homework",
+    description="Get homework for specific lecture",
+    parameters=[
+        OpenApiParameter(
+            name="title",
+            description="Homework title",
+            required=False,
+            type=str,
+        ),
+        OpenApiParameter(
+            name="status",
+            description="Homework status",
+            required=False,
+            type=str,
+            enum=["active", "inactive"],
+        ),
+    ],
     responses={
-        200: HomeworkCreateSerializer(many=True),
-        403: PermissionDeniedSerializer,
+        200: StudentHomeworkSerializer(many=True),
+        403: OpenApiResponse(
+            response=PermissionDeniedSerializer,
+            description="Authentication required",
+        ),
     },
 )
+
 
 teacher_homework_create = extend_schema(
     tags=["Homework - Teacher"],
     operation_id="teacher_homework_create",
-    summary="Create a new homework",
-    description="Create a new homework assignment for a lecture.",
+    summary="Create homework",
+    description="Create new homework assignment",
     request=HomeworkCreateSerializer,
     responses={
-        201: HomeworkCreateSerializer,
+        201: StudentHomeworkSerializer,
         400: ValidationErrorSerializer,
-        403: PermissionDeniedSerializer,
-        404: NotFoundSerializer,
+        403: OpenApiResponse(
+            response=PermissionDeniedSerializer,
+            description="Authentication required",
+        ),
+        404: OpenApiResponse(
+            response=NotFoundSerializer,
+            description="Lecture not found",
+        ),
     },
 )
+
 
 teacher_homework_retrieve = extend_schema(
     tags=["Homework - Teacher"],
     operation_id="teacher_homework_retrieve",
-    summary="Retrieve teacher's homework",
-    description="Retrieve details of a specific homework assignment created by the teacher.",
+    summary="Get homework",
+    description="Get homework assignment details",
     responses={
-        200: HomeworkCreateSerializer,
-        403: PermissionDeniedSerializer,
-        404: NotFoundSerializer,
+        200: StudentHomeworkSerializer,
+        403: OpenApiResponse(
+            response=PermissionDeniedSerializer,
+            description="Authentication required",
+        ),
+        404: OpenApiResponse(
+            response=NotFoundSerializer,
+            description="Homework not found",
+        ),
     },
 )
+
 
 teacher_homework_update = extend_schema(
     tags=["Homework - Teacher"],
     operation_id="teacher_homework_update",
-    summary="Update a homework",
-    description="Full update of a homework assignment.",
+    summary="Update homework",
+    description="Update homework assignment",
     request=HomeworkUpdateSerializer,
     responses={
-        200: HomeworkCreateSerializer,
+        200: StudentHomeworkSerializer,
         400: ValidationErrorSerializer,
-        403: PermissionDeniedSerializer,
-        404: NotFoundSerializer,
+        403: OpenApiResponse(
+            response=PermissionDeniedSerializer,
+            description="Authentication required",
+        ),
+        404: OpenApiResponse(
+            response=NotFoundSerializer,
+            description="Homework not found",
+        ),
     },
 )
+
 
 teacher_homework_partial_update = extend_schema(
     tags=["Homework - Teacher"],
     operation_id="teacher_homework_partial_update",
-    summary="Partially update a homework",
-    description="Partial update of a homework assignment.",
+    summary="Update homework",
+    description="Update homework assignment",
     request=HomeworkUpdateSerializer,
     responses={
-        200: HomeworkCreateSerializer,
+        200: StudentHomeworkSerializer,
         400: ValidationErrorSerializer,
-        403: PermissionDeniedSerializer,
-        404: NotFoundSerializer,
+        403: OpenApiResponse(
+            response=PermissionDeniedSerializer,
+            description="Authentication required",
+        ),
+        404: OpenApiResponse(
+            response=NotFoundSerializer,
+            description="Homework not found",
+        ),
     },
 )
+
 
 teacher_homework_delete = extend_schema(
     tags=["Homework - Teacher"],
     operation_id="teacher_homework_delete",
-    summary="Delete a homework",
-    description="Delete a homework assignment created by the teacher.",
+    summary="Delete homework",
+    description="Delete homework assignment",
     responses={
-        204: OpenApiResponse(description="Homework deleted successfully"),
-        403: PermissionDeniedSerializer,
-        404: NotFoundSerializer,
+        204: None,
+        403: OpenApiResponse(
+            response=PermissionDeniedSerializer,
+            description="Authentication required",
+        ),
+        404: OpenApiResponse(
+            response=NotFoundSerializer,
+            description="Homework not found",
+        ),
     },
 )
 
@@ -116,57 +179,76 @@ teacher_homework_delete = extend_schema(
 student_all_homeworks_list = extend_schema(
     tags=["Homework - Student"],
     operation_id="student_all_homeworks_list",
-    summary="List all student's homework across all courses",
-    description="Retrieve all homework assignments across all courses the student is enrolled in.",
+    summary="List all homeworks",
+    description="Get all homework assignments for student",
     parameters=[
         OpenApiParameter(
-            name="status",
-            description="Filter by homework status",
+            name="title",
+            description="Homework title",
             required=False,
             type=str,
         ),
         OpenApiParameter(
-            name="course", description="Filter by course ID", required=False, type=int
+            name="status",
+            description="Homework status",
+            required=False,
+            type=str,
+            enum=["active", "inactive"],
+        ),
+        OpenApiParameter(
+            name="course",
+            description="Course ID",
+            required=False,
+            type=int,
         ),
     ],
     responses={
         200: StudentHomeworkSerializer(many=True),
-        403: PermissionDeniedSerializer,
+        403: OpenApiResponse(
+            response=PermissionDeniedSerializer,
+            description="Authentication required",
+        ),
     },
 )
+
 
 teacher_all_homeworks_list = extend_schema(
     tags=["Homework - Teacher"],
     operation_id="teacher_all_homeworks_list",
-    summary="List all teacher's homework across all courses",
-    description="Retrieve all homework assignments across all courses taught by the teacher.",
+    summary="List all homeworks",
+    description="Get all homework assignments for teacher",
     parameters=[
         OpenApiParameter(
-            name="status",
-            description="Filter by homework status",
+            name="title",
+            description="Homework title",
             required=False,
             type=str,
-            enum=[
-                "draft",
-                "published",
-                "archived",
-            ],
         ),
         OpenApiParameter(
-            name="course_id",
-            description="Filter by course ID",
+            name="status",
+            description="Homework status",
+            required=False,
+            type=str,
+            enum=["active", "inactive"],
+        ),
+        OpenApiParameter(
+            name="course",
+            description="Course ID",
             required=False,
             type=int,
         ),
         OpenApiParameter(
-            name="lecture_id",
-            description="Filter by lecture ID",
+            name="lecture",
+            description="Lecture ID",
             required=False,
             type=int,
         ),
     ],
     responses={
-        200: HomeworkCreateSerializer(many=True),
-        403: PermissionDeniedSerializer,
+        200: StudentHomeworkSerializer(many=True),
+        403: OpenApiResponse(
+            response=PermissionDeniedSerializer,
+            description="Authentication required",
+        ),
     },
 )

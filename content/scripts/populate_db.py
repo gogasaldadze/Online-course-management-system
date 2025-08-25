@@ -7,9 +7,11 @@ from content.models import (
     HomeWorkSubmission,
     Grade,
     GradeComment,
+    Notification,
 )
 from access.models import User
 from django.db import transaction
+from django.contrib.contenttypes.models import ContentType
 import random
 from decimal import Decimal
 
@@ -147,6 +149,17 @@ def run():
             )
             course.helpers.set(course_data["helpers"])
             course.student.set(course_data["students"])
+            
+           
+            course_content_type = ContentType.objects.get_for_model(Courses)
+            for student in course_data["students"]:
+                Notification.objects.create(
+                    user=student.user,
+                    title=f"Course Enrollment",
+                    message=f"You have been added to the course '{course.name}'.",
+                    is_read=False
+                )
+            
             courses.append(course)
 
         # ----------------- LECTURES -----------------
