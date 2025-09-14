@@ -9,12 +9,11 @@ sub-apis of API contain needed files such as views, serializers, querysets etc.
 
 Since we run our project on container and also for security purposes i keep hidden our SECRET_KEY, JWT related keys, oyur postgre creds and url.  Therefore in settings.py every important data is implied by help of ENV, .env and dj_database_url. 
 
-Since uv is one of the first topic of our course, i decided to dive more deeply into that topic, and explored uv docker doccumentation which was really helpful honestly, i was able to find suggested "best-practice" approach to implement uv in our container.
 
     https://docs.astral.sh/uv/guides/integration/docker
     https://github.com/astral-sh/uv-docker-example/blob/main/Dockerfile
 
-you may see i use different port 5436 on my local machine and this is because 5432 is kept by some process which i was not really able to terminate, so hope its okay.
+you may see i use different port 5436 on my local machine and this is because 5432 is kept by some process which i was not really able to terminate.
 
 
 Lastly, want to mention makefile, because it rly saves my nerves and time :D and you may already have it, but still incase, i keep windows isntallation instruction below, because at first it was rly struggle to install this tool on win. 
